@@ -1,0 +1,95 @@
+#!/bin/sh
+
+# Program: Install
+# Purpose: Install script for the Frith Book
+# Assumptions: that this script is run from the directory which contains it
+#   (the firthbook installation directory)
+
+###--- Global Variables ---###
+
+TOP=`pwd`
+CONFIGURATION=Configuration
+
+#####################################################################
+###  MAIN LOGIC
+#####################################################################
+
+###--- Config setup and reading of non-include parameters --------###
+if test ! -r $CONFIGURATION
+then
+    echo "Missing configuration file.  Please create $CONFIGURATION."
+    exit 1
+fi
+
+exec 4<&0
+exec < $CONFIGURATION
+while read name value junk
+do
+    case "$name" in
+        LIBDIRS)
+            LIBDIRS=$value;;
+        CONFIGPATH)
+            CONFIGPATH=$value;;
+        PYTHONPATH)
+            python_path=$value;;
+    esac
+done
+exec 0<&4
+
+###--- Add link to configuration python executable ---------------###
+if [ -h Configuration.pyc ]; then
+    rm Configuration.pyc
+fi
+ln -s $CONFIGPATH Configuration.pyc
+
+if [ -h python ]; then
+    rm python
+fi
+ln -s $python_path python
+
+###--- Untar the book files --------------------------------------###
+tar xvfp book.tar
+
+###--- Generate the include directory ----------------------------###
+mkdir include
+gen_includes
+
+###--- Create include links and update permissions ---------------###
+
+for name in `ls`
+do
+    if [ -d $name ]; then
+        if [ $name != include ]; then
+            if [ $name != CVS ]; then
+                cd $name
+                ln -s ../include/ include
+                chmod 750 *
+                chgrp www *
+                cd $TOP
+            fi
+        fi
+    fi
+done
+
+## Go into the top level sub directories of www, and add an include directory there.
+
+cd ./www/
+for name in `ls`
+do
+    if [ -d $name ]; then
+        if [ $name != include ]; then
+            if [ $name != CVS ]; then
+                cd $name
+                ln -s ../../include/ include
+                chmod 750 *
+                chgrp www *
+                cd ..
+            fi
+        fi
+    fi
+done
+cd $TOP
+
+chmod -f 750 *
+chgrp -f www *
+
